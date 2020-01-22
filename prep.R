@@ -16,6 +16,8 @@ library(infotheo)
 
 knitr::opts_chunk$set(echo=FALSE, results='hide')
 
+plots <- FALSE
+
 #+ load
 
 loans <- read.csv(file="Washington_State_HDMA-2016.csv", 
@@ -88,11 +90,13 @@ summary(loans[trans.cat.pred])
 summary(loans[loc.cont.pred])
 glimpse(loans)
 
+summary(loans$action_taken)
+
 
 #' ### Peek at relationships
 #+ pairgrid, results='show', eval=FALSE
 
-'
+if(plots){
 grid <- loans %>% drop_na() %>%
                     ggplot(aes(x=.panel_x, y=.panel_y)) + 
                     geom_point(shape=16, size=.5, position="auto") + 
@@ -100,42 +104,41 @@ grid <- loans %>% drop_na() %>%
                     geom_density2d() +
                     facet_matrix(vars(c(ind.cont.pred, loc.cont.pred)),
                                 layer.diag=2, layer.upper=3)
-'
+}
 
 
 # layer.diag=2
 # hm catching some errors with facet_matrix. maybe doesn't like categorical vars?
 #  is working w/o cat vars
 # complained about NAs, which, duh
-#print(grid)
+if(plots) print(grid)
 
 
 
 #' Categorical variables wanna have fun too
 #+ mutinfo, echo=TRUE, results='show'
 
+if(plots){
 mi.loans <- discretize(loans)
 mi <- mutinformation(mi.loans[c(ind.cat.pred, ind.cont.pred, "action_taken")])
 print(mi)
 
-print(corrplot(mi, is.corr=FALSE, method='color'))
-
-
-
-#' ### Some questions!!!  
-#' - how do you do feature selection?  
-#'   - do some methods (L2 reg?) not care about extra features?  
-#' - is there some middle ground between looking at bivariate relationships and fitting the whole model and seeing what sticks?  
-#' - how to work with mutual information?  
-#'   - is it a reasonable approach for inspecting dyadic relationships w/ categorical vars?  
-#'   - can it tell you something about monotonicity?  
-#'   - why is a variable's mutual information with itself not 1?  
-#'     - is auto-MI just entropy??  
-#'   - is mutual information sensitive to binning?  
-#' - are PCA or other unsupervised methods relevant to predictive work?  
+print(corrplot(mi, is.corr=FALSE, method="color"))
+}
 
 
 #+
+
+#' ### Drop NAs for selected vars
+#' Also drop obs with too-rare outcome value
+#+ dropna, echo=TRUE, results='show'
+
+print(nrow(loans))
+loans %<>% drop_na(c(cat, cont, "action_taken"))
+print(nrow(loans))
+
+# We need outcome categories to have more members than the folds in our CV
+loans %<>% add_count(action_taken) %>% filter(n > 4) %>% select(-n)
 
 #' ### Standardize continuous vars  
 #' using reticulate?
@@ -147,34 +150,25 @@ pp <- import("sklearn.preprocessing", convert=TRUE)
 #pp$StandardScaler
 # fit, transform, inverse_transform
 
-# kinda gross but ...
-scalers <- map(rep(TRUE, length(cont)), pp$StandardScaler)
-# give names to list
-names(scalers) <- cont
+scaler <- pp$StandardScaler()
+loans.fixed <- scaler$fit_transform(loans[cont])
 
-loans.fixed <- vector("list", length(cont))
-
-for(i in seq(length(cont))){
-    name <- cont[i]
-    loans.fixed[[i]] <- scalers[[name]]$fit_transform(loans[name])
-}
-
-names(loans.fixed) <- cont
-loans.fixed <- as.data.frame(loans.fixed)
-
-#s.cont <- map2(rep("s.", length(cont)), cont, partial(paste, sep=""))
-
-
-#' ### Transform categorical vars to one-hot
+#' ### Transform categorical vars
 
 #+ onehot, results='show'
 
+onehot <- pp$OneHotEncoder(drop='first', sparse=FALSE)
 
+loans.fixed <- cbind(loans.fixed, onehot$fit_transform(loans[cat])) #%>% as.data.frame()
 
-
+# We need outcome var transformed too
+label <- pp$LabelEncoder()
+outcome.fixed <- label$fit_transform(loans$action_taken)
 
 
 head(loans.fixed)
+
+head(outcome.fixed)
 
 # getting imported objects to instantiate...
 #  no parens (cuz wants function obj, duh) + convert=FALSE
