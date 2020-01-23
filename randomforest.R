@@ -5,6 +5,9 @@
 #' ---
 
 #+ setup, echo=FALSE, results='hide', warning=FALSE, message=FALSE
+
+start <- Sys.time()
+
 library(tidyverse)
 library(reticulate)
 ensemble <- import("sklearn.ensemble")
@@ -18,53 +21,80 @@ knitr::opts_chunk$set(echo=FALSE, results='hide')
 load(file='prepped.data')
 
 
+
 #' ### Model Setup
 
 #+ prep, results='show', echo=TRUE
 
 
-rf <- ensemble$RandomForestClassifier(oob_score=TRUE, n_estimators=10L)
+rf <- ensemble$RandomForestClassifier(oob_score=TRUE, n_estimators=100L)
 
 # we'll cross-validate over max_features (to consider at each split)
 #pg <- list(max_features=range(1, 20))
-pg <- seq(1L, 2L)
+pg <- seq(2L, 20L)
 
 # seq!!!!!! not range!
-
-
-# use RFC.oob_score_! as generalization estimator
-#oob.score <- metrics$make_scorer(function(est){return(est$oob_score_)}, greater_is_better=TRUE)
-# nah. doesn't play nice w/ build in CV facilites
 
 
 X <- loans.fixed
 y <- outcome.fixed
 
 #' ### Fit test
-#+ test.fit, results='show', echo=TRUE
-
+#+ test.fit, eval=FALSE
+'
 test.fit <- rf$fit(X, y)
 print(test.fit$oob_score_)
 
-#save(rf, test.fit, file="temp.test.fit")
 py_save_object(test.fit, "temp.test.fit")
-
+'
 
 #' ### Fit
+#' Evaluate using oob_score_  
+
+
 #+ fit, results='show', echo=TRUE
 
-rfcv <- selection$validation_curve(estimator=rf, X=X, y=y, param_name="max_features", param_range=pg, cv=2L, scoring='accuracy')
+# refitting governed by Makefile:
+rfcv <- tryCatch({
 
-#save(rfcv, file="temp.rfcv")
-py_save_object(rfcv, "temp.rfcv")
+    # if fitted model exists, load it
+    py_load_object(file="temp.rfcv")
+}, error=function(e){
+
+    # if not...
+    # Hold OOB scores
+    oob_scores <- vector(len=length(pg))
+
+    # Loop over max_features
+    for(i in seq_along(pg)){
+	rf$set_params(max_features=pg[i])
+	fit <- rf$fit(X, y)
+	oob_scores[i] <- fit$oob_score_
+    }
+
+    # pop in dataframe
+    rfcv <- data.frame(oob=oob_scores, max_features=pg)
+
+    py_save_object(rfcv, "temp.rfcv")
+    return(rfcv)
+})
+
+
 
 #' ### Viz
 #+ viz, results='show'
 
-#plt <- ggplot(aes(pg, rfcv$train_scores, rfcv$test_scores)) + geom_line()
-#print(plt)
+plt <- ggplot(rfcv, aes(max_features, oob)) + geom_line() #+ ylim(0, 1)
+print(plt)
 
-save.image(file="temp.models")
+end <- Sys.time()
+time <- end - start
+print(time)
 
 
-
+#' ### Time Notes
+#' trees, params, time  
+#' 10, 2, 1.5m (was this Rscript or rmd?)  
+#' 100, 9, 47m  
+#' pre-fitted, 1m (rmd)  
+#' 100, 19, [dunno cause error] (rmd)  
