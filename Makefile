@@ -1,7 +1,12 @@
 
 
-#visualization/randomforest.html: randomforest.R prepped.data
-#	Rscript -e "library(rmarkdown); rmarkdown::render(knitr::spin('randomforest.R', knit=FALSE), output_dir='visualization')"
+
+svm: svm.R prepped.data
+	Rscript -e "library(rmarkdown); rmarkdown::render(knitr::spin('svm.R', knit=FALSE), output_dir='visualization')"
+
+svm_refit: svm.R prepped.data
+	rm temp.svcv
+	Rscript -e "library(rmarkdown); rmarkdown::render(knitr::spin('svm.R', knit=FALSE), output_dir='visualization')"
 
 # visualize using saved models, if they exist
 randomforest: randomforest.R prepped.data
@@ -14,7 +19,6 @@ randomforest_refit: randomforest.R prepped.data
 
 
 
-# this is weird and maybe not great?
 prepped.data: prep.R
 	Rscript prep.R
 
