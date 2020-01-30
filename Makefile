@@ -17,6 +17,8 @@ randomforest_refit: randomforest.R prepped.data
 	rm temp.rfcv
 	Rscript -e "library(rmarkdown); rmarkdown::render(knitr::spin('randomforest.R', knit=FALSE), output_dir='visualization')"
 
+eda: eda.R prepped.data
+	Rscript -e "library(rmarkdown); rmarkdown::render(knitr::spin('eda.R', knit=FALSE), output_dir='visualization')"
 
 
 prepped.data: prep.R

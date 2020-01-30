@@ -6,13 +6,17 @@
 
 #+ setup, echo=FALSE, warning=FALSE, message=FALSE, results='hide'
 
+start <- Sys.time()
+
 library(tidyverse)
-# gonna try import()ing python modules lol
+library(skimr)
 library(reticulate)
 library(magrittr)
 library(ggforce)
 library(corrplot)
 library(infotheo)
+
+pp <- import("sklearn.preprocessing", convert=TRUE)
 
 knitr::opts_chunk$set(echo=FALSE, results='hide')
 
@@ -29,23 +33,9 @@ loans <- read.csv(file="Washington_State_HDMA-2016.csv",
 
 loans %<>% filter(loan_amount_000s < 10000)
 
+# save a copy for later
+all.loans <- loans
 
-
-
-#' let's recode some NAs  
-#' Actually let's not! just throwing away info  
-#+ factor_clean, eval=FALSE
-
-'
-loans %<>% mutate(ethnicity = fct_recode(applicant_ethnicity_name,
-                                         "NA" = "Information not provided by applicant in mail, Internet, or telephone application",
-                                         "NA" = "Not applicable"),
-                  race = fct_recode(applicant_race_name_1,
-                                    "NA" = "Information not provided by applicant in mail, Internet, or telephone application",
-                                    "NA" = "Not applicable"))
-
-summary(loans[c("ethnicity", "race")])
-'
 
 #' Fix some other varnames
 #+ names, echo=TRUE
@@ -79,52 +69,14 @@ cont <- c(ind.cont.pred, loc.cont.pred)
 
 cat <- c(ind.cat.pred, loc.cat.pred, trans.cat.pred)
 
+
+
 #' outcome: action_taken_name  
 
 #' look at variables
-#+ echo=TRUE, results='show'
-summary(loans[ind.cat.pred])
-summary(loans[ind.cont.pred])
-summary(loans[loc.cat.pred])
-summary(loans[trans.cat.pred])
-summary(loans[loc.cont.pred])
-glimpse(loans)
-
-summary(loans$action_taken)
-
-
-#' ### Peek at relationships
-#+ pairgrid, results='show', eval=FALSE
-
-if(plots){
-grid <- loans %>% drop_na() %>%
-                    ggplot(aes(x=.panel_x, y=.panel_y)) + 
-                    geom_point(shape=16, size=.5, position="auto") + 
-                    geom_autodensity() +
-                    geom_density2d() +
-                    facet_matrix(vars(c(ind.cont.pred, loc.cont.pred)),
-                                layer.diag=2, layer.upper=3)
-}
-
-
-# layer.diag=2
-# hm catching some errors with facet_matrix. maybe doesn't like categorical vars?
-#  is working w/o cat vars
-# complained about NAs, which, duh
-if(plots) print(grid)
-
-
-
-#' Categorical variables wanna have fun too
-#+ mutinfo, echo=TRUE, results='show'
-
-if(plots){
-mi.loans <- discretize(loans)
-mi <- mutinformation(mi.loans[c(ind.cat.pred, ind.cont.pred, "action_taken")])
-print(mi)
-
-print(corrplot(mi, is.corr=FALSE, method="color"))
-}
+#+ skim, echo=TRUE, results='show', warning=FALSE
+skim(loans)
+#glimpse(loans)
 
 
 #+
@@ -141,11 +93,9 @@ print(nrow(loans))
 loans %<>% add_count(action_taken) %>% filter(n > 4) %>% select(-n)
 
 #' ### Standardize continuous vars  
-#' using reticulate?
 
 #+ scaling, results='show'
 
-pp <- import("sklearn.preprocessing", convert=TRUE)
 
 #pp$StandardScaler
 # fit, transform, inverse_transform
@@ -159,27 +109,107 @@ loans.fixed <- scaler$fit_transform(loans[cont])
 
 onehot <- pp$OneHotEncoder(drop='first', sparse=FALSE)
 
-loans.fixed <- cbind(loans.fixed, onehot$fit_transform(loans[cat])) #%>% as.data.frame()
+loans.fixed <- cbind(loans.fixed, onehot$fit_transform(loans[cat]))
 
 # We need outcome var transformed too
 label <- pp$LabelEncoder()
 outcome.fixed <- label$fit_transform(loans$action_taken)
 
 
-head(loans.fixed)
+# more readable
+print(as_tibble(loans.fixed))
+print(as_tibble(outcome.fixed))
 
-head(outcome.fixed)
 
-# getting imported objects to instantiate...
-#  no parens (cuz wants function obj, duh) + convert=FALSE
-#   seems to work
-#  no parens + convert=TRUE
-#   also works!
-#  $new() + convert=TRUE
+
+#' ### All data variant  
+#' Count NAs cond. on variable inclusion!  
+
+#+ all.data.drop, echo=TRUE, results='show', eval=TRUE
+
+count.na <- function(df){
+    # good idea but nah
+    # df %>% rowwise %>% summarize(any.na = any(is.na(colnames(.)))) %>% pull(any.na) %>% sum
+    df %>% pmap(~ any(is.na(c(...)))) %>% as.logical %>% sum
+}
+
+# Count union of NA obs across subsets of variables
+test.dropna <- function(df){
+    # get list mapping feature names to na count
+    na.count <- sapply(df, function(col) sum(is.na(col)))
+    # sort
+    na.count <- na.count[order(na.count, decreasing=FALSE)]
+    # create new df
+    test.df <- NULL
+    union.na.count <- list()
+    # add features one by one
+    for(f in names(na.count)){
+        if(is.null(test.df)) test.df <- data.frame(df[f])
+        else test.df[f] <- df[f]
+
+        # check union NA count
+        union.na.count[f] <- count.na(test.df)
+    }
+
+    union.na.count$obs <- nrow(df)
+    return(union.na.count)
+}
+
+#all.loans %>% sample_frac(.01) %>% test.dropna %>% tail
+# rate_spread is the only real bad one
+all.loans %<>% select(-rate_spread)
+
+# drop NAs
+all.loans %<>% drop_na()
+
+#' All data transform
+#+ all.data.transform, results='show', echo=TRUE
+
+index.numeric <- function(df){
+    sapply(colnames(df), function(name) is.numeric(df[,name]))
+}
+index.factor <- function(df){
+    sapply(colnames(df), function(name) is.factor(df[,name]))
+}
+
+# first, break out the outcome, we gotta treat that differently
+all.outcome <- all.loans$action_taken_name
+all.loans$action_taken_name <- NULL
+
+# do we lose any columns by assuming non-numeric ==> factor?
+print(ncol(all.loans))
+num <- index.numeric(all.loans)
+fac <- index.factor(all.loans)
+print(length(c(num[num], fac[fac])))
+
+all.scaler <- pp$StandardScaler()
+all.onehot <- pp$OneHotEncoder()
+all.cont <- all.scaler$fit_transform(all.loans[,num])
+all.cat <- all.onehot$fit_transform(all.loans[,fac])
+
+all.label <- pp$LabelEncoder()
+all.outcome.fixed <- all.label$fit_transform(all.outcome)
+
+all.loans.fixed <- cbind(all.cont, all.cat)
+
+
+#+ finish, echo=FALSE, results='show'
 
 
 # Keep some ancillary vars around for analysis
 save.image(file='prepped.data')
+
+end <- Sys.time()
+print(end - start)
+
+#' ### Timing
+#' 47 features, 450000 obs -- 1.4m  
+#' 2.5m as Rscript  
+#' 7.5m rmd w/ test.dropna  
+#' 3.5m rmd w test.dropna on 1% of data   
+#' 2.2m rmd w/o test.dropna  
+
+
 
 
 
