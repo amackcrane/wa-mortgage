@@ -14,7 +14,6 @@ library(reticulate)
 library(magrittr)
 library(ggforce)
 library(corrplot)
-library(infotheo)
 
 pp <- import("sklearn.preprocessing", convert=TRUE)
 
@@ -192,6 +191,8 @@ all.outcome.fixed <- all.label$fit_transform(all.outcome)
 
 all.loans.fixed <- cbind(all.cont, all.cat)
 
+# put outcome back in all.loans for EDA
+all.loans$action_taken_name <- all.outcome
 
 #+ finish, echo=FALSE, results='show'
 

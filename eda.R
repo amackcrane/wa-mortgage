@@ -11,6 +11,9 @@ library(skimr)
 library(reticulate)
 cluster <- import("sklearn.cluster")
 library(magrittr)
+library(ggforce)
+library(infotheo)
+library(corrplot)
 
 knitr::opts_chunk$set(echo=FALSE, results='hide')
 
@@ -30,7 +33,7 @@ knitr::opts_chunk$set(echo=FALSE, results='hide')
 load(file="prepped.data")
 
 #' ### Re-skim
-#+ skim, results='show'
+#+ skim, results='show', warning=FALSE
 
 skim(all.loans)
 
@@ -49,9 +52,9 @@ print(plt)
 #'     - property type
 #' - What does the data look like in dim-reduced predictor space?  
 
-
+#+
 #' ### Peek at relationships
-#+ pairgrid, results='show', eval=FALSE
+#+ pairgrid, results='show'
 
 grid <- loans %>% drop_na() %>%
                     ggplot(aes(x=.panel_x, y=.panel_y)) + 
