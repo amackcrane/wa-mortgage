@@ -12,14 +12,10 @@ library(tidyverse)
 library(skimr)
 library(reticulate)
 library(magrittr)
-library(ggforce)
-library(corrplot)
 
 pp <- import("sklearn.preprocessing", convert=TRUE)
 
 knitr::opts_chunk$set(echo=FALSE, results='hide')
-
-plots <- FALSE
 
 #+ load
 
@@ -47,6 +43,13 @@ loans %<>% rename(ethnicity=applicant_ethnicity_name, race=applicant_race_name_1
                   action_taken = action_taken_name)
 
 
+#' Peek at variables
+#' And drop useless ones
+#+ skim, echo=TRUE, results='show', warning=FALSE
+skim(loans)
+
+loans %<>% select(-respondent_id, -state_name, -state_abbr)
+
 #' Categorize our variables
 
 #+ echo=TRUE
@@ -67,15 +70,6 @@ trans.cat.pred <- c("purchaser_type", "property_type", "loan_purpose",
 cont <- c(ind.cont.pred, loc.cont.pred)
 
 cat <- c(ind.cat.pred, loc.cat.pred, trans.cat.pred)
-
-
-
-#' outcome: action_taken_name  
-
-#' look at variables
-#+ skim, echo=TRUE, results='show', warning=FALSE
-skim(loans)
-#glimpse(loans)
 
 
 #+
@@ -101,14 +95,17 @@ loans %<>% add_count(action_taken) %>% filter(n > 4) %>% select(-n)
 
 scaler <- pp$StandardScaler()
 loans.fixed <- scaler$fit_transform(loans[cont])
+colnames(loans.fixed) <- colnames(loans[cont])
 
 #' ### Transform categorical vars
 
 #+ onehot, results='show'
 
 onehot <- pp$OneHotEncoder(drop='first', sparse=FALSE)
+cat.fixed <- onehot$fit_transform(loans[cat])
+colnames(cat.fixed) <- onehot$get_feature_names(colnames(loans[cat]))
 
-loans.fixed <- cbind(loans.fixed, onehot$fit_transform(loans[cat]))
+loans.fixed <- cbind(loans.fixed, cat.fixed)
 
 # We need outcome var transformed too
 label <- pp$LabelEncoder()
@@ -181,27 +178,38 @@ num <- index.numeric(all.loans)
 fac <- index.factor(all.loans)
 print(length(c(num[num], fac[fac])))
 
+# setup scalers
 all.scaler <- pp$StandardScaler()
-all.onehot <- pp$OneHotEncoder()
-all.cont <- all.scaler$fit_transform(all.loans[,num])
-all.cat <- all.onehot$fit_transform(all.loans[,fac])
+all.onehot <- pp$OneHotEncoder(sparse=FALSE)
 
+# fit, transform, keep colnames
+all.cont <- all.scaler$fit_transform(all.loans[,num])
+colnames(all.cont) <- colnames(all.loans[,num])
+
+all.cat <- all.onehot$fit_transform(all.loans[,fac])
+colnames(all.cat) <- all.onehot$get_feature_names(colnames(all.loans[,fac]))
+
+# transform outcome
 all.label <- pp$LabelEncoder()
 all.outcome.fixed <- all.label$fit_transform(all.outcome)
 
+# DOES NOT WORK when all.cat is sparse!!!!!!!!!!!!!!!!!!!!
 all.loans.fixed <- cbind(all.cont, all.cat)
 
-# put outcome back in all.loans for EDA
-all.loans$action_taken_name <- all.outcome
 
 #+ finish, echo=FALSE, results='show'
 
-
-# Keep some ancillary vars around for analysis
-save.image(file='prepped.data')
-
+# Time
 end <- Sys.time()
 print(end - start)
+
+
+# Save
+keep <- c("loans.fixed", "outcome.fixed", "all.loans.fixed", "all.outcome.fixed",
+          "scaler", "onehot", "label", "all.scaler", "all.onehot", "all.label")
+rm(list=setdiff(ls(), keep))
+save.image(file='prepped.data')
+
 
 #' ### Timing
 #' 47 features, 450000 obs -- 1.4m  
@@ -209,7 +217,7 @@ print(end - start)
 #' 7.5m rmd w/ test.dropna  
 #' 3.5m rmd w test.dropna on 1% of data   
 #' 2.2m rmd w/o test.dropna  
-
+#' 12m w/ all.fixed non-sparse  
 
 
 

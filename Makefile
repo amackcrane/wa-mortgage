@@ -14,7 +14,8 @@ randomforest: randomforest.R prepped.data
 
 # delete saved models to force refitting
 randomforest_refit: randomforest.R prepped.data
-	rm temp.rfcv
+	rm -f temp.rfcv
+	rm -f temp.all.rfcv
 	Rscript -e "library(rmarkdown); rmarkdown::render(knitr::spin('randomforest.R', knit=FALSE), output_dir='visualization')"
 
 eda: eda.R prepped.data

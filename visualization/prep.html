@@ -378,7 +378,7 @@ $(document).ready(function () {
 </div>
 
 
-<p>first drop an outlier that’s messing up histograms…</p>
+<p>first drop an outlier that’s messing up histograms… and drop respondent id</p>
 <pre class="r"><code>loans %&lt;&gt;% filter(loan_amount_000s &lt; 10000)
 
 # save a copy for later
@@ -391,24 +391,7 @@ all.loans &lt;- loans</code></pre>
                   hoepa_status = hoepa_status_name, loan_type = loan_type_name,
                   owner_occupancy = owner_occupancy_name, lien_status = lien_status_name,
                   action_taken = action_taken_name)</code></pre>
-<p>Categorize our variables</p>
-<pre class="r"><code>ind.cont.pred &lt;- c(&quot;loan_amount_000s&quot;, &quot;applicant_income_000s&quot;)
-loc.cont.pred &lt;- c(&quot;hud_median_family_income&quot;, &quot;tract_to_msamd_income&quot;, &quot;population&quot;,
-                   &quot;minority_population&quot;, &quot;number_of_owner_occupied_units&quot;,
-                   &quot;number_of_1_to_4_family_units&quot;)
-
-
-ind.cat.pred &lt;- c(&quot;ethnicity&quot;, &quot;race&quot;, &quot;sex&quot;)
-loc.cat.pred &lt;- c(&quot;county&quot;, &quot;msamd&quot;)
-trans.cat.pred &lt;- c(&quot;purchaser_type&quot;, &quot;property_type&quot;, &quot;loan_purpose&quot;, 
-                    &quot;preapproval&quot;, &quot;hoepa_status&quot;, &quot;loan_type&quot;,
-                    &quot;owner_occupancy&quot;, &quot;lien_status&quot;)
-
-cont &lt;- c(ind.cont.pred, loc.cont.pred)
-
-cat &lt;- c(ind.cat.pred, loc.cat.pred, trans.cat.pred)</code></pre>
-<p>outcome: action_taken_name<br />
-look at variables</p>
+<p>Peek at variables And drop useless ones</p>
 <pre class="r"><code>skim(loans)</code></pre>
 <table>
 <caption>Data summary</caption>
@@ -927,7 +910,23 @@ look at variables</p>
 </tr>
 </tbody>
 </table>
-<pre class="r"><code>#glimpse(loans)</code></pre>
+<pre class="r"><code>loans %&lt;&gt;% select(-respondent_id, -state_name, -state_abbr)</code></pre>
+<p>Categorize our variables</p>
+<pre class="r"><code>ind.cont.pred &lt;- c(&quot;loan_amount_000s&quot;, &quot;applicant_income_000s&quot;)
+loc.cont.pred &lt;- c(&quot;hud_median_family_income&quot;, &quot;tract_to_msamd_income&quot;, &quot;population&quot;,
+                   &quot;minority_population&quot;, &quot;number_of_owner_occupied_units&quot;,
+                   &quot;number_of_1_to_4_family_units&quot;)
+
+
+ind.cat.pred &lt;- c(&quot;ethnicity&quot;, &quot;race&quot;, &quot;sex&quot;)
+loc.cat.pred &lt;- c(&quot;county&quot;, &quot;msamd&quot;)
+trans.cat.pred &lt;- c(&quot;purchaser_type&quot;, &quot;property_type&quot;, &quot;loan_purpose&quot;, 
+                    &quot;preapproval&quot;, &quot;hoepa_status&quot;, &quot;loan_type&quot;,
+                    &quot;owner_occupancy&quot;, &quot;lien_status&quot;)
+
+cont &lt;- c(ind.cont.pred, loc.cont.pred)
+
+cat &lt;- c(ind.cat.pred, loc.cat.pred, trans.cat.pred)</code></pre>
 <div id="drop-nas-for-selected-vars" class="section level3">
 <h3>Drop NAs for selected vars</h3>
 <p>Also drop obs with too-rare outcome value</p>
@@ -944,36 +943,77 @@ loans %&lt;&gt;% add_count(action_taken) %&gt;% filter(n &gt; 4) %&gt;% select(-
 </div>
 <div id="transform-categorical-vars" class="section level3">
 <h3>Transform categorical vars</h3>
-<pre><code>## Warning: `as_tibble.matrix()` requires a matrix with column names or a `.name_repair` argument. Using compatibility `.name_repair`.
-## This warning is displayed once per session.</code></pre>
 <pre><code>## # A tibble: 403,979 x 95
-##        V1       V2      V3     V4      V5      V6     V7       V8    V9
-##     &lt;dbl&gt;    &lt;dbl&gt;   &lt;dbl&gt;  &lt;dbl&gt;   &lt;dbl&gt;   &lt;dbl&gt;  &lt;dbl&gt;    &lt;dbl&gt; &lt;dbl&gt;
-##  1 -0.289  0.0240  -0.293   0.485  1.86   -0.0666  1.55   1.23e+0     0
-##  2 -0.221 -0.568   -1.48   -0.814 -0.222  -0.0535 -0.242 -6.25e-2     0
-##  3 -0.216  0.0320  -0.293  -0.551 -0.126  -0.851  -0.502  2.67e-2     0
-##  4  0.353  1.62    -0.293   1.32  -0.152  -1.06    0.266  4.15e-4     1
-##  5  0.694  0.00803  0.0759  1.87  -0.0614 -0.937   0.621  4.16e-1     0
-##  6 -0.434 -0.608   -1.21   -0.686  2.43   -0.354   2.09   2.32e+0     0
-##  7  3.12   0.296    1.01    2.08  -1.17   -0.499  -0.674 -1.04e+0     0
-##  8  0.286 -0.432    1.01   -1.06   1.12    0.428   0.519  4.01e-1     0
-##  9  0.518 -0.0240  -0.370  -0.714 -0.326   0.0368 -2.38  -1.49e+0     0
-## 10 -0.589 -0.464    0.0759 -0.493  0.0822 -0.689   0.242  2.52e-1     0
-## # … with 403,969 more rows, and 86 more variables: V10 &lt;dbl&gt;, V11 &lt;dbl&gt;,
-## #   V12 &lt;dbl&gt;, V13 &lt;dbl&gt;, V14 &lt;dbl&gt;, V15 &lt;dbl&gt;, V16 &lt;dbl&gt;, V17 &lt;dbl&gt;,
-## #   V18 &lt;dbl&gt;, V19 &lt;dbl&gt;, V20 &lt;dbl&gt;, V21 &lt;dbl&gt;, V22 &lt;dbl&gt;, V23 &lt;dbl&gt;,
-## #   V24 &lt;dbl&gt;, V25 &lt;dbl&gt;, V26 &lt;dbl&gt;, V27 &lt;dbl&gt;, V28 &lt;dbl&gt;, V29 &lt;dbl&gt;,
-## #   V30 &lt;dbl&gt;, V31 &lt;dbl&gt;, V32 &lt;dbl&gt;, V33 &lt;dbl&gt;, V34 &lt;dbl&gt;, V35 &lt;dbl&gt;,
-## #   V36 &lt;dbl&gt;, V37 &lt;dbl&gt;, V38 &lt;dbl&gt;, V39 &lt;dbl&gt;, V40 &lt;dbl&gt;, V41 &lt;dbl&gt;,
-## #   V42 &lt;dbl&gt;, V43 &lt;dbl&gt;, V44 &lt;dbl&gt;, V45 &lt;dbl&gt;, V46 &lt;dbl&gt;, V47 &lt;dbl&gt;,
-## #   V48 &lt;dbl&gt;, V49 &lt;dbl&gt;, V50 &lt;dbl&gt;, V51 &lt;dbl&gt;, V52 &lt;dbl&gt;, V53 &lt;dbl&gt;,
-## #   V54 &lt;dbl&gt;, V55 &lt;dbl&gt;, V56 &lt;dbl&gt;, V57 &lt;dbl&gt;, V58 &lt;dbl&gt;, V59 &lt;dbl&gt;,
-## #   V60 &lt;dbl&gt;, V61 &lt;dbl&gt;, V62 &lt;dbl&gt;, V63 &lt;dbl&gt;, V64 &lt;dbl&gt;, V65 &lt;dbl&gt;,
-## #   V66 &lt;dbl&gt;, V67 &lt;dbl&gt;, V68 &lt;dbl&gt;, V69 &lt;dbl&gt;, V70 &lt;dbl&gt;, V71 &lt;dbl&gt;,
-## #   V72 &lt;dbl&gt;, V73 &lt;dbl&gt;, V74 &lt;dbl&gt;, V75 &lt;dbl&gt;, V76 &lt;dbl&gt;, V77 &lt;dbl&gt;,
-## #   V78 &lt;dbl&gt;, V79 &lt;dbl&gt;, V80 &lt;dbl&gt;, V81 &lt;dbl&gt;, V82 &lt;dbl&gt;, V83 &lt;dbl&gt;,
-## #   V84 &lt;dbl&gt;, V85 &lt;dbl&gt;, V86 &lt;dbl&gt;, V87 &lt;dbl&gt;, V88 &lt;dbl&gt;, V89 &lt;dbl&gt;,
-## #   V90 &lt;dbl&gt;, V91 &lt;dbl&gt;, V92 &lt;dbl&gt;, V93 &lt;dbl&gt;, V94 &lt;dbl&gt;, V95 &lt;dbl&gt;</code></pre>
+##    loan_amount_000s applicant_incom… hud_median_fami… tract_to_msamd_…
+##               &lt;dbl&gt;            &lt;dbl&gt;            &lt;dbl&gt;            &lt;dbl&gt;
+##  1           -0.289          0.0240           -0.293             0.485
+##  2           -0.221         -0.568            -1.48             -0.814
+##  3           -0.216          0.0320           -0.293            -0.551
+##  4            0.353          1.62             -0.293             1.32 
+##  5            0.694          0.00803           0.0759            1.87 
+##  6           -0.434         -0.608            -1.21             -0.686
+##  7            3.12           0.296             1.01              2.08 
+##  8            0.286         -0.432             1.01             -1.06 
+##  9            0.518         -0.0240           -0.370            -0.714
+## 10           -0.589         -0.464             0.0759           -0.493
+## # … with 403,969 more rows, and 91 more variables: population &lt;dbl&gt;,
+## #   minority_population &lt;dbl&gt;, number_of_owner_occupied_units &lt;dbl&gt;,
+## #   number_of_1_to_4_family_units &lt;dbl&gt;, `ethnicity_Information not
+## #   provided by applicant in mail, Internet, or telephone
+## #   application` &lt;dbl&gt;, `ethnicity_Not Hispanic or Latino` &lt;dbl&gt;,
+## #   `ethnicity_Not applicable` &lt;dbl&gt;, race_Asian &lt;dbl&gt;, `race_Black or
+## #   African American` &lt;dbl&gt;, `race_Information not provided by applicant
+## #   in mail, Internet, or telephone application` &lt;dbl&gt;, `race_Native
+## #   Hawaiian or Other Pacific Islander` &lt;dbl&gt;, `race_Not
+## #   applicable` &lt;dbl&gt;, race_White &lt;dbl&gt;, `sex_Information not provided by
+## #   applicant in mail, Internet, or telephone application` &lt;dbl&gt;,
+## #   sex_Male &lt;dbl&gt;, `sex_Not applicable` &lt;dbl&gt;, `county_Asotin
+## #   County` &lt;dbl&gt;, `county_Benton County` &lt;dbl&gt;, `county_Chelan
+## #   County` &lt;dbl&gt;, `county_Clallam County` &lt;dbl&gt;, `county_Clark
+## #   County` &lt;dbl&gt;, `county_Columbia County` &lt;dbl&gt;, `county_Cowlitz
+## #   County` &lt;dbl&gt;, `county_Douglas County` &lt;dbl&gt;, `county_Ferry
+## #   County` &lt;dbl&gt;, `county_Franklin County` &lt;dbl&gt;, `county_Garfield
+## #   County` &lt;dbl&gt;, `county_Grant County` &lt;dbl&gt;, `county_Grays Harbor
+## #   County` &lt;dbl&gt;, `county_Island County` &lt;dbl&gt;, `county_Jefferson
+## #   County` &lt;dbl&gt;, `county_King County` &lt;dbl&gt;, `county_Kitsap
+## #   County` &lt;dbl&gt;, `county_Kittitas County` &lt;dbl&gt;, `county_Klickitat
+## #   County` &lt;dbl&gt;, `county_Lewis County` &lt;dbl&gt;, `county_Lincoln
+## #   County` &lt;dbl&gt;, `county_Mason County` &lt;dbl&gt;, `county_Okanogan
+## #   County` &lt;dbl&gt;, `county_Pacific County` &lt;dbl&gt;, `county_Pend Oreille
+## #   County` &lt;dbl&gt;, `county_Pierce County` &lt;dbl&gt;, `county_San Juan
+## #   County` &lt;dbl&gt;, `county_Skagit County` &lt;dbl&gt;, `county_Skamania
+## #   County` &lt;dbl&gt;, `county_Snohomish County` &lt;dbl&gt;, `county_Spokane
+## #   County` &lt;dbl&gt;, `county_Stevens County` &lt;dbl&gt;, `county_Thurston
+## #   County` &lt;dbl&gt;, `county_Wahkiakum County` &lt;dbl&gt;, `county_Walla Walla
+## #   County` &lt;dbl&gt;, `county_Whatcom County` &lt;dbl&gt;, `county_Whitman
+## #   County` &lt;dbl&gt;, `county_Yakima County` &lt;dbl&gt;, `msamd_Bellingham -
+## #   WA` &lt;dbl&gt;, `msamd_Bremerton, Silverdale - WA` &lt;dbl&gt;, `msamd_Kennewick,
+## #   Richland - WA` &lt;dbl&gt;, `msamd_Lewiston - ID, WA` &lt;dbl&gt;, `msamd_Longview
+## #   - WA` &lt;dbl&gt;, `msamd_Mount Vernon, Anacortes - WA` &lt;dbl&gt;,
+## #   `msamd_Olympia, Tumwater - WA` &lt;dbl&gt;, `msamd_Portland, Vancouver,
+## #   Hillsboro - OR, WA` &lt;dbl&gt;, `msamd_Seattle, Bellevue, Everett -
+## #   WA` &lt;dbl&gt;, `msamd_Spokane, Spokane Valley - WA` &lt;dbl&gt;, `msamd_Tacoma,
+## #   Lakewood - WA` &lt;dbl&gt;, `msamd_Walla Walla - WA` &lt;dbl&gt;, `msamd_Wenatchee
+## #   - WA` &lt;dbl&gt;, `msamd_Yakima - WA` &lt;dbl&gt;, `purchaser_type_Commercial
+## #   bank, savings bank or savings association` &lt;dbl&gt;,
+## #   `purchaser_type_Fannie Mae (FNMA)` &lt;dbl&gt;, `purchaser_type_Farmer Mac
+## #   (FAMC)` &lt;dbl&gt;, `purchaser_type_Freddie Mac (FHLMC)` &lt;dbl&gt;,
+## #   `purchaser_type_Ginnie Mae (GNMA)` &lt;dbl&gt;, `purchaser_type_Life
+## #   insurance company, credit union, mortgage bank, or finance
+## #   company` &lt;dbl&gt;, `purchaser_type_Loan was not originated or was not
+## #   sold in calendar year covered by register` &lt;dbl&gt;,
+## #   `purchaser_type_Other type of purchaser` &lt;dbl&gt;,
+## #   `purchaser_type_Private securitization` &lt;dbl&gt;,
+## #   `property_type_One-to-four family dwelling (other than manufactured
+## #   housing)` &lt;dbl&gt;, `loan_purpose_Home purchase` &lt;dbl&gt;,
+## #   loan_purpose_Refinancing &lt;dbl&gt;, `preapproval_Preapproval was not
+## #   requested` &lt;dbl&gt;, `preapproval_Preapproval was requested` &lt;dbl&gt;,
+## #   `hoepa_status_Not a HOEPA loan` &lt;dbl&gt;, `loan_type_FHA-insured` &lt;dbl&gt;,
+## #   `loan_type_FSA/RHS-guaranteed` &lt;dbl&gt;, `loan_type_VA-guaranteed` &lt;dbl&gt;,
+## #   `owner_occupancy_Not owner-occupied as a principal dwelling` &lt;dbl&gt;,
+## #   `owner_occupancy_Owner-occupied as a principal dwelling` &lt;dbl&gt;,
+## #   `lien_status_Not secured by a lien` &lt;dbl&gt;, `lien_status_Secured by a
+## #   first lien` &lt;dbl&gt;, `lien_status_Secured by a subordinate lien` &lt;dbl&gt;</code></pre>
 <pre><code>## Warning: Calling `as_tibble()` on a vector is discouraged, because the behavior is likely to change in the future. Use `tibble::enframe(name = NULL)` instead.
 ## This warning is displayed once per session.</code></pre>
 <pre><code>## # A tibble: 403,979 x 1
@@ -997,7 +1037,7 @@ loans %&lt;&gt;% add_count(action_taken) %&gt;% filter(n &gt; 4) %&gt;% select(-
 <pre class="r"><code>count.na &lt;- function(df){
     # good idea but nah
     # df %&gt;% rowwise %&gt;% summarize(any.na = any(is.na(colnames(.)))) %&gt;% pull(any.na) %&gt;% sum
-    df %&gt;% pmap(function(...) any(is.na(c(...)))) %&gt;% as.logical %&gt;% sum
+    df %&gt;% pmap(~ any(is.na(c(...)))) %&gt;% as.logical %&gt;% sum
 }
 
 # Count union of NA obs across subsets of variables
@@ -1047,22 +1087,35 @@ print(ncol(all.loans))</code></pre>
 fac &lt;- index.factor(all.loans)
 print(length(c(num[num], fac[fac])))</code></pre>
 <pre><code>## [1] 45</code></pre>
-<pre class="r"><code>all.scaler &lt;- pp$StandardScaler()
-all.onehot &lt;- pp$OneHotEncoder()
-all.cont &lt;- all.scaler$fit_transform(all.loans[,num])
-all.cat &lt;- all.onehot$fit_transform(all.loans[,fac])
+<pre class="r"><code># setup scalers
+all.scaler &lt;- pp$StandardScaler()
+all.onehot &lt;- pp$OneHotEncoder(sparse=FALSE)
 
+# fit, transform, keep colnames
+all.cont &lt;- all.scaler$fit_transform(all.loans[,num])
+colnames(all.cont) &lt;- colnames(all.loans[,num])
+
+all.cat &lt;- all.onehot$fit_transform(all.loans[,fac])
+colnames(all.cat) &lt;- all.onehot$get_feature_names(colnames(all.loans[,fac]))
+
+# transform outcome
 all.label &lt;- pp$LabelEncoder()
 all.outcome.fixed &lt;- all.label$fit_transform(all.outcome)
 
-all.loans.fixed &lt;- cbind(all.cont, all.cat)</code></pre>
-<pre><code>## Time difference of 2.224733 mins</code></pre>
+# DOES NOT WORK when all.cat is sparse!!!!!!!!!!!!!!!!!!!!
+all.loans.fixed &lt;- cbind(all.cont, all.cat)
+
+# put outcome back in all.loans for EDA
+all.loans$action_taken_name &lt;- all.outcome</code></pre>
+<pre><code>## Time difference of 11.34636 mins</code></pre>
 </div>
 <div id="timing" class="section level3">
 <h3>Timing</h3>
 <p>47 features, 450000 obs – 1.4m<br />
 2.5m as Rscript<br />
-7.5m w/ test.dropna :  3.5m w test.dropna on 1% of data</p>
+7.5m rmd w/ test.dropna<br />
+3.5m rmd w test.dropna on 1% of data<br />
+2.2m rmd w/o test.dropna</p>
 </div>
 
 
