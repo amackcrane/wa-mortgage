@@ -26,7 +26,7 @@ knitr::opts_chunk$set(echo=FALSE, results='hide')
 
 
 
-#' ### Model Setup
+#' # Model Setup
 
 #+ prep, results='show', echo=TRUE
 
@@ -134,9 +134,9 @@ plt_fun <- function(x) x %>% ggplot(aes(max_features, oob)) + geom_line() +
                    ylab("Test score") + xlab("# Features considered at each node")
 
 # Exec
-( rfcv %>% plt_fun + ggtitle("Hand-Selected Features") ) %>% print
+rfcv %>% plt_fun %>% + ggtitle("Hand-Selected Features") %>% print
 
-( all.rfcv %>% plt_fun + ggtitle("All Features") ) %>% print
+all.rfcv %>% plt_fun %>% + ggtitle("All Features") %>% print
 
 
 #' ### Feature Importances
@@ -152,28 +152,40 @@ all.imp <- all.rfcv$feature$importances_ %>% set_names(colnames(all.loans.fixed)
 
 # Specify
 
+# wrap strings lacking whitespace e.g. variable names
+strwrap_force <- function(col, width=20) {
+    purrr::map_chr(strsplit(col, ""),
+                   ~ purrr::reduce2(.x,
+                                    seq_along(.x),
+                                    ~ paste(..1, rep("\n", mod(..3, width) == 0), ..2, sep=""),
+                                    .init=""))
+}
+
 # colnames already set...
 # summarize, transpose, set rownames to variable
-imp_fun <- function(x) x %>% select(-oob, -max_features) %>% lapply(mean) %>%
+get_importances <- function(x) x %>% select(-oob, -max_features) %>% lapply(mean) %>%
     data.frame %>%
     set_rownames(c("importance")) %>%
-    t %>% data.frame %>% rownames_to_column("feature")
+    t %>% data.frame %>% rownames_to_column("feature") %>%
+    mutate(feature=strwrap_force(feature, 20))
+
 
 # let's sort and truncate
 sort_trunc <- function(x) x[order(x$importance, decreasing=TRUE),][1:15,]
 
 # plot template
-plt_fun <- function(x) x %>% imp_fun %>% sort_trunc %>%
-    ggplot() + aes(!str_wrap(feature, 25), importance) + geom_col() +
-    #theme(axis.text.x = element_text(angle=45, hjust=1)) +
-    coord_flip()
+plt_fun <- function(x) x %>% get_importances %>% sort_trunc %>%
+    ggplot() %>%
+    + geom_col(aes(feature, importance)) %>%
+#    + theme(axis.text.x = element_text(angle=45, hjust=1)) %>%
+    + coord_flip()
 
 # Exec
-( rfcv %>% plt_fun +
-    ggtitle("Hand-Sel.") ) %>%
+rfcv %>% plt_fun %>%
+    + ggtitle("Hand-Sel.") %>%
     print
-( all.rfcv %>% plt_fun +
-    ggtitle("All Feat.") ) %>%
+all.rfcv %>% plt_fun %>%
+    + ggtitle("All Feat.") %>%
     print
 
 
