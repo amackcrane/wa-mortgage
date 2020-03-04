@@ -6,6 +6,13 @@
 
 #+ setup, echo=FALSE, warning=FALSE, message=FALSE, results='hide'
 
+# Load
+load(file="prepped.data")
+
+# Clean up
+keep <- c("loans.fixed", "outcome.fixed")
+rm(list=setdiff(ls(), keep))
+
 start <- Sys.time()
 
 library(tidyverse)
@@ -20,21 +27,17 @@ library(corrplot)
 
 knitr::opts_chunk$set(echo=FALSE, results='hide')
 
-# Load
-load(file="prepped.data")
-
-# Clean up
-keep <- c("loans.fixed")
-rm(list=setdiff(ls(), keep))
 
 
-#' ### Compute Clustering
+#' # Compute Clustering
 #+ cluster, results='show', echo=TRUE
 
-small.data <- loans.fixed[sample(nrow(loans.fixed), 2000),] %>% data.frame
+sample.ind <- sample(nrow(loans.fixed), 2000)
+small.data <- loans.fixed[sample.ind,] %>% data.frame
+small.outcome <- outcome.fixed[sample.ind]
 
 # Clean up
-rm(loans.fixed)
+rm(loans.fixed, outcome.fixed)
 
 # toss any columns with no variance d/t sampling & low-frequency categories
 print(dim(small.data))
@@ -44,7 +47,7 @@ print(dim(small.data))
 clust <- pam(small.data, k=4, metric="euclidean")
 
 
-#' ### Compute PCA
+#' # Compute PCA
 #+ pca, results='show', echo=TRUE
 
 pca <- prcomp(small.data, tol=.3)
@@ -82,7 +85,7 @@ corrplot(abs.load, is.corr=FALSE, cl.lim=c(0,top), method="color")
 
 
 
-#' ### Clustering Plot
+#' # Clustering Plot
 #+ plot, results='show', echo=TRUE
 
 # Gotta DIY it afaict if we want a limited set of loadings
@@ -96,9 +99,39 @@ pc.data <- pca$x[,pcs] %>% data.frame
 pc.data$cluster <- clust$clustering
 # fix loadings
 load.dat <- load[1:4,pcs] %>% data.frame
+# pull in names
+load.dat$var <- rownames(load.dat)
 
-ggbiplot(pc.data, loadings.data=load.dat, loadings.label=TRUE, colour='cluster')
+#ggbiplot(pc.data, loadings.data=load.dat, loadings.label=TRUE, colour='cluster')
 
-#autoplot(clust, loadings=TRUE, loadings.data=abs.load[1:3], loadings.label=TRUE,
-#         x=1, y=2)
+
+
+## Add in outcome var??
+pc.data$outcome <- small.outcome
+# take 2 data.frames
+#   one the data points mapped into PC space w/ cols named PCX; cluster
+#     created by e.g. prcomp + cluster::pam
+#   the other variable loadings into PC space, cols named PCX; var
+#     which should reflect eigenvalue magnitudes
+# color_varname pertains to the 'pc' data.frame
+pca.loadings.plot <- function(pc, loads, .color_varname){
+    color_varname <- ensym(.color_varname)
+    
+    # we don't care about absolute variable loadings, so scale these to be interpretable
+    const <- var(pc$PC1) / max(loads$PC1)
+    loads %<>% mutate_at(vars(matches("PC")), ~ .x * const)
+
+    pc %>% ggplot() %>%
+        + geom_point(aes(PC1, PC2, colour=factor(!!color_varname))) %>%
+        + scale_color_hue(name="Cluster") %>%
+        + geom_segment(data=loads,
+                       aes(x=0, y=0, xend=PC1, yend=PC2),
+                       colour='red', arrow=arrow(type='open')) %>%
+        + geom_text(data=loads, aes(PC1, PC2, label=var)) %>%
+        print
+}
+pca.loadings.plot(pc.data, load.dat, cluster)
+
+pca.loadings.plot(pc.data, load.dat, outcome)
+
 
