@@ -24,12 +24,23 @@ loans <- read.csv(file="Washington_State_HDMA-2016.csv",
 
 
 #' first drop an outlier that's messing up histograms...
+#' and drop respondent id
 #+ echo=TRUE
 
 loans %<>% filter(loan_amount_000s < 10000)
 
+
+#' Peek at variables
+#' And drop useless ones
+#+ skim, echo=TRUE, results='show', warning=FALSE
+skim_without_charts(loans)
+
+loans %<>% select(-respondent_id, -state_name, -state_abbr)
+
+
 # save a copy for later
 all.loans <- loans
+
 
 
 #' Fix some other varnames
@@ -42,13 +53,6 @@ loans %<>% rename(ethnicity=applicant_ethnicity_name, race=applicant_race_name_1
                   owner_occupancy = owner_occupancy_name, lien_status = lien_status_name,
                   action_taken = action_taken_name)
 
-
-#' Peek at variables
-#' And drop useless ones
-#+ skim, echo=TRUE, results='show', warning=FALSE
-skim(loans)
-
-loans %<>% select(-respondent_id, -state_name, -state_abbr)
 
 #' Categorize our variables
 
@@ -171,6 +175,7 @@ index.factor <- function(df){
 # first, break out the outcome, we gotta treat that differently
 all.outcome <- all.loans$action_taken_name
 all.loans$action_taken_name <- NULL
+all.loans %<>% select(-matches("denial_reason"))
 
 # do we lose any columns by assuming non-numeric ==> factor?
 print(ncol(all.loans))
